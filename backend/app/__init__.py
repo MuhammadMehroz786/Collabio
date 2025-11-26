@@ -112,6 +112,9 @@ def register_error_handlers(app):
 
     @app.errorhandler(400)
     def bad_request(error):
+        # If error has a description, use it; otherwise generic message
+        if hasattr(error, 'description'):
+            return jsonify({'error': error.description}), 400
         return jsonify({'error': 'Bad request'}), 400
 
 

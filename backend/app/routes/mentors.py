@@ -12,9 +12,8 @@ mentors_bp = Blueprint('mentors', __name__)
 
 
 @mentors_bp.route('/', methods=['GET'])
-@token_required
 def get_mentors():
-    """Get all mentors"""
+    """Get all mentors (public)"""
     query = MentorProfile.query.filter_by(deleted_at=None)
 
     # Filter by expertise
@@ -38,14 +37,18 @@ def get_mentors():
     elif sort_by == 'sessions':
         query = query.order_by(MentorProfile.total_sessions.desc())
 
+    # Get paginated results and include expertise in each mentor
     result = paginate(query)
+    # Transform data to include expertise
+    if 'data' in result and isinstance(result['data'], list):
+        result['data'] = [mentor.to_dict(include_expertise=True) for mentor in query.limit(result['meta']['per_page']).offset((result['meta']['page'] - 1) * result['meta']['per_page']).all()]
+
     return success_response(data=result)
 
 
 @mentors_bp.route('/<mentor_id>', methods=['GET'])
-@token_required
 def get_mentor(mentor_id):
-    """Get mentor profile"""
+    """Get mentor profile (public)"""
     mentor = MentorProfile.query.filter_by(mentor_id=mentor_id, deleted_at=None).first()
     if not mentor:
         return error_response('Mentor not found', status=404)
@@ -127,7 +130,9 @@ def get_my_requests():
 @token_required
 @user_type_required('mentor')
 def respond_to_request(request_id):
-    """Respond to mentorship request (accept/reject)"""
+    """Respond to mentorship request (accept/reject) and send message to student"""
+    from app.models.all_models import Conversation, ConversationParticipant, Message
+
     user = get_current_user()
     data = request.get_json()
 
@@ -153,11 +158,55 @@ def respond_to_request(request_id):
     try:
         request_obj.status = data['status']
         request_obj.responded_at = db.func.current_timestamp()
+
+        # Create or get conversation between mentor and student
+        existing_conversation = Conversation.query.join(ConversationParticipant).filter(
+            ConversationParticipant.user_id.in_([user.user_id, request_obj.student_id]),
+            Conversation.deleted_at.is_(None)
+        ).group_by(Conversation.conversation_id).having(
+            db.func.count(ConversationParticipant.participant_id) == 2
+        ).first()
+
+        if not existing_conversation:
+            # Create new conversation
+            conversation = Conversation()
+            conversation.save()
+
+            # Add mentor participant
+            ConversationParticipant(
+                conversation_id=conversation.conversation_id,
+                user_id=user.user_id
+            ).save()
+
+            # Add student participant
+            ConversationParticipant(
+                conversation_id=conversation.conversation_id,
+                user_id=request_obj.student_id
+            ).save()
+
+            conversation_id = conversation.conversation_id
+        else:
+            conversation_id = existing_conversation.conversation_id
+
+        # Send message to student
+        mentor_name = user.mentor_profile.full_name
+        if data['status'] == 'accepted':
+            message_text = f"Great news! I've accepted your mentorship request. I'm excited to work with you and help you grow in your career. Let's schedule our first session soon!"
+        else:
+            message_text = f"Thank you for your interest in mentorship. Unfortunately, I'm unable to take on new mentees at this time due to my current commitments. I wish you the best in finding a mentor who can support your goals!"
+
+        message = Message(
+            conversation_id=conversation_id,
+            sender_id=user.user_id,
+            message_text=message_text
+        )
+        message.save()
+
         db.session.commit()
 
         return success_response(
             data=request_obj.to_dict(),
-            message=f'Request {data["status"]}'
+            message=f'Request {data["status"]} and message sent to student'
         )
 
     except Exception as e:

@@ -13,13 +13,21 @@ jobs_bp = Blueprint('jobs', __name__)
 
 
 @jobs_bp.route('/', methods=['GET'])
-@token_required
 def get_jobs():
     """Get all active jobs (paginated, filterable)"""
-    user = get_current_user()
+    # Check if user is authenticated (optional)
+    from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
+    from flask_jwt_extended.exceptions import NoAuthorizationError
+
+    try:
+        verify_jwt_in_request(optional=True)
+        user_id = get_jwt_identity()
+        user = get_current_user() if user_id else None
+    except (NoAuthorizationError, Exception):
+        user = None
 
     # If employer, only return their jobs
-    if user.user_type == 'employer' and user.employer_profile:
+    if user and user.user_type == 'employer' and user.employer_profile:
         query = Job.query.filter_by(
             employer_id=user.employer_profile.employer_id,
             deleted_at=None
@@ -63,9 +71,8 @@ def get_jobs():
 
 
 @jobs_bp.route('/<job_id>', methods=['GET'])
-@token_required
 def get_job(job_id):
-    """Get single job"""
+    """Get single job (public)"""
     job = Job.query.filter_by(job_id=job_id, deleted_at=None).first()
 
     if not job:

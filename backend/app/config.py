@@ -89,6 +89,9 @@ class Config:
     LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
     LOG_FILE = os.getenv('LOG_FILE', './logs/collabio.log')
 
+    # Timezone
+    TIMEZONE = os.getenv('TIMEZONE', 'Asia/Karachi')
+
 
 class DevelopmentConfig(Config):
     """Development configuration"""

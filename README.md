@@ -67,6 +67,22 @@ Collabio is a comprehensive career platform designed to connect students with jo
 
 ## 🚀 Quick Start
 
+### Option 1: Demo Mode (No Backend Required!) ⚡
+
+Perfect for demos, presentations, or testing the UI:
+
+```bash
+./start-demo.sh
+```
+
+Then open `http://localhost:8080` and login with:
+- **Student**: `demo.student@collabio.com` (any password)
+- **Employer**: `demo.employer@techcorp.com` (any password)
+
+See **[DEMO_GUIDE.md](DEMO_GUIDE.md)** for full demo instructions.
+
+### Option 2: Full Setup (Backend + Frontend)
+
 ### 1. Clone Repository
 
 ```bash
@@ -123,6 +139,7 @@ Frontend runs on: **http://localhost:5173**
 
 ## 📚 Documentation
 
+- **[Demo Mode Guide](DEMO_GUIDE.md)** - Run UI demo without backend (perfect for presentations!)
 - **[Complete Setup Guide](SETUP_GUIDE.md)** - Detailed installation instructions
 - **[Backend Documentation](backend/README.md)** - API endpoints & database schema
 - **[Frontend Documentation](frontend/README.md)** - Component structure & services

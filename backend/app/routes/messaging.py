@@ -115,6 +115,10 @@ def get_conversations():
 @token_required
 def get_conversation(conversation_id):
     """Get conversation details and messages"""
+    from app.models.user import User
+    from app.models.student import StudentProfile
+    from app.models.all_models import EmployerProfile
+
     user = get_current_user()
 
     # Verify user is participant
@@ -143,19 +147,40 @@ def get_conversation(conversation_id):
 
     messages = [msg.to_dict() for msg in messages_query.all()]
 
-    # Get participants
+    # Get participants with full details
     participants_query = ConversationParticipant.query.filter_by(
         conversation_id=conversation_id,
         deleted_at=None
     ).all()
 
-    participants = [
-        {
-            'user_id': p.user_id,
-            'joined_at': p.joined_at.isoformat() if p.joined_at else None
-        }
-        for p in participants_query
-    ]
+    participants = []
+    for p in participants_query:
+        participant_user = User.query.get(p.user_id)
+        if participant_user:
+            # Get profile info based on user type
+            profile_info = {}
+            if participant_user.user_type == 'student':
+                student_profile = StudentProfile.query.filter_by(student_id=participant_user.user_id).first()
+                if student_profile:
+                    profile_info = {
+                        'full_name': student_profile.full_name,
+                        'profile_picture_url': student_profile.profile_picture
+                    }
+            elif participant_user.user_type == 'employer':
+                employer_profile = EmployerProfile.query.filter_by(employer_id=participant_user.user_id).first()
+                if employer_profile:
+                    profile_info = {
+                        'full_name': employer_profile.company_name,
+                        'profile_picture_url': employer_profile.company_logo
+                    }
+
+            participants.append({
+                'user_id': participant_user.user_id,
+                'email': participant_user.email,
+                'user_type': participant_user.user_type,
+                'joined_at': p.joined_at.isoformat() if p.joined_at else None,
+                **profile_info
+            })
 
     data = {
         'conversation_id': conversation.conversation_id,
